@@ -62,12 +62,10 @@ docker run -d --rm --name "$LOAD_CNAME" \
 ok "Load generator started"
 
 # Start the Insights agent w/ Repro mode
-bold "Starting the Postman Insights Agent"
+bold "Starting the Postman Insights Agent (sudo may prompt)…"
+info "Press Ctrl+C to stop; cleanup runs automatically."
+
 sudo POSTMAN_API_KEY="$POSTMAN_API_KEY" \
   postman-insights-agent apidump \
   --project "$SERVICE_ID" \
   --repro-mode
-
-ok "Agent running. Demo live at http://localhost:${APP_PORT_HOST}"
-info "Press Ctrl+C to stop; cleanup runs automatically."
-
