@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --- Styling (ANSI if TTY) ---
+if [ -t 1 ]; then
+  BOLD="\033[1m"; DIM="\033[2m"; RED="\033[31m"; CYAN="\033[36m"; GREEN="\033[32m"; RESET="\033[0m"
+else
+  BOLD=""; DIM=""; RED=""; CYAN=""; GREEN=""; RESET=""
+fi
+
 # Pretty output
-bold() { printf "\033[1m%s\033[0m\n" "$*"; }
-info() { printf "➜ %s\n" "$*"; }
-ok() {   printf "✔ %s\n" "$*"; }
-err() {  printf "\033[31m✖ %s\n" "$*" >&2; }
+bold()    { printf "${BOLD}%s${RESET}\n" "$*"; }
+info()    { printf "${CYAN}➜%s ${RESET}%s\n" "" "$*"; }
+ok()      { printf "${GREEN}✔ %s${RESET}\n" "$*"; }
+err()     { printf "${RED}✖ %s${RESET}\n" "$*" >&2; }
+success() { printf "${GREEN}✅ %s${RESET}\n" "$*"; }
 
 # Config
 IMAGE="vdtyson/demo-dogs:latest"
@@ -15,30 +23,32 @@ APP_PORT_HOST="${APP_PORT_HOST:-8000}"
 
 # Helpers
 have() { command -v "$1" >/dev/null 2>&1; }
-die() { err "$1"; exit 1; }
-
-# Check that Docker is present & running
-have docker || die "Docker not found. Install Docker and retry."
-docker info >/dev/null 2>&1 || die "Docker daemon not running."
-
-# Check if the Insights agent is missing
-have postman-insights-agent || die "Postman Insights Agent not found. Install the Insights Agent and retry."
-
-# Check required env. variables
-[[ -n "${SERVICE_ID:-}" ]] || die "Missing SERVICE_ID environment variable."
-[[ -n "${POSTMAN_API_KEY:-}" ]] || die "Missing POSTMAN_API_KEY environment variable."
+die()  { err "$1"; exit 1; }
 
 # Cleanup on exit
 cleanup() {
-	info "Cleaning up..."
-	docker rm -f "$LOAD_CNAME" "$APP_CNAME" >/dev/null 2>&1 || true
+  info "Cleaning up containers (service + load generator)…"
+  docker rm -f "$LOAD_CNAME" "$APP_CNAME" >/dev/null 2>&1 || true
+  success "Demo stopped cleanly. Thanks for trying Insights! 🎉"
 }
 trap cleanup EXIT
 
-# Pull & run app (host-published port so agent can see traffic)
+# Ctrl-C handler: only acknowledge user input (agent prints its own stop msg)
+trap 'bold "Ctrl+C detected — shutting down demo…"' INT
+
+# --- Preflight ---
 bold "Starting Demo Dogs service and load generation"
+info "Checking prerequisites…"
+have docker || die "Docker not found. Install Docker and retry."
+docker info >/dev/null 2>&1 || die "Docker daemon not running."
+have postman-insights-agent || die "Postman Insights Agent not found. Install the Insights Agent and retry."
+[[ -n "${SERVICE_ID:-}" ]] || die "Missing SERVICE_ID environment variable."
+[[ -n "${POSTMAN_API_KEY:-}" ]] || die "Missing POSTMAN_API_KEY environment variable."
+
+echo
 info "Using port ${APP_PORT_HOST}. Change with APP_PORT_HOST=<port>."
 
+# --- App container ---
 docker pull "$IMAGE" >/dev/null
 docker rm -f "$APP_CNAME" >/dev/null 2>&1 || true
 docker run --rm -d --name "$APP_CNAME" -p "${APP_PORT_HOST}:80" "$IMAGE" >/dev/null
@@ -54,18 +64,23 @@ for i in {1..30}; do
   sleep 1
 done
 
-# Start the load generator (container hitting host service)
+echo
+# --- Load generator (quiet: suppress container id) ---
 TARGET_URL="http://host.docker.internal:${APP_PORT_HOST}"
 docker run -d --rm --name "$LOAD_CNAME" \
   --add-host=host.docker.internal:host-gateway \
-  "$IMAGE" python load_gen.py "$TARGET_URL"
+  "$IMAGE" python load_gen.py "$TARGET_URL" >/dev/null
 ok "Load generator started"
 
-# Start the Insights agent w/ Repro mode
-bold "Starting the Postman Insights Agent (sudo may prompt)…"
+echo
+# --- Insights Agent (foreground, logs stream) ---
+bold "🚀 Starting the Postman Insights Agent (sudo may prompt)…"
 info "Press Ctrl+C to stop; cleanup runs automatically."
+echo
 
-sudo POSTMAN_API_KEY="$POSTMAN_API_KEY" \
+# Run agent in foreground (so logs stream). Use -E to preserve provided env var.
+sudo -E POSTMAN_API_KEY="$POSTMAN_API_KEY" \
   postman-insights-agent apidump \
   --project "$SERVICE_ID" \
   --repro-mode
+
