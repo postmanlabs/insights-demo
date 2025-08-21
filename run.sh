@@ -73,13 +73,13 @@ docker run -d --rm --name "$LOAD_CNAME" \
 ok "Load generator started"
 
 echo
-# --- Insights Agent (foreground, logs stream) ---
+
+# --- Run the Insights Agent with Repro Mode enabled ---
 bold "🚀 Starting the Postman Insights Agent (sudo may prompt)…"
 info "Press Ctrl+C to stop; cleanup runs automatically."
 echo
 
-# Run agent in foreground (so logs stream). Use -E to preserve provided env var.
-sudo -E POSTMAN_API_KEY="$POSTMAN_API_KEY" \
+sudo POSTMAN_API_KEY="$POSTMAN_API_KEY" \
   postman-insights-agent apidump \
   --project "$SERVICE_ID" \
   --repro-mode
