@@ -37,18 +37,32 @@ trap cleanup EXIT
 trap 'bold "Ctrl+C detected — shutting down demo…"' INT
 
 # --- Preflight ---
-bold "Starting Demo Dogs service and load generation"
 info "Checking prerequisites…"
-have docker || die "Docker not found. Install Docker and retry."
+
+# Docker check
+have docker || die "Docker not found. Please install Docker: https://docs.docker.com/get-docker/"
 docker info >/dev/null 2>&1 || die "Docker daemon not running."
-have postman-insights-agent || die "Postman Insights Agent not found. Install the Insights Agent and retry."
+
+# Insights Agent check (auto-install if missing)
+if ! have postman-insights-agent; then
+  err "Postman Insights Agent not found."
+  info "Installing Insights Agent automatically…"
+  bash -c "$(curl -L https://releases.observability.postman.com/scripts/install-postman-insights-agent.sh)" \
+    || die "Failed to install Postman Insights Agent."
+  # Refresh PATH cache
+  hash -r || true
+  ok "Postman Insights Agent installed."
+fi
+
+# Required env vars
 [[ -n "${SERVICE_ID:-}" ]] || die "Missing SERVICE_ID environment variable."
 [[ -n "${POSTMAN_API_KEY:-}" ]] || die "Missing POSTMAN_API_KEY environment variable."
 
 echo
-info "Using port ${APP_PORT_HOST}. Change with APP_PORT_HOST=<port>."
 
 # --- App container ---
+bold "Starting Demo Dogs service and load generation"
+info "Using port ${APP_PORT_HOST}. Change with APP_PORT_HOST=<port>."
 docker pull "$IMAGE" >/dev/null
 docker rm -f "$APP_CNAME" >/dev/null 2>&1 || true
 docker run --rm -d --name "$APP_CNAME" -p "${APP_PORT_HOST}:80" "$IMAGE" >/dev/null
