@@ -96,5 +96,6 @@ echo
 sudo POSTMAN_API_KEY="$POSTMAN_API_KEY" \
   postman-insights-agent apidump \
   --project "$SERVICE_ID" \
+  --filter "port ${APP_PORT_HOST}" \
   --repro-mode
 
