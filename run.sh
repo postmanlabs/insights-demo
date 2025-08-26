@@ -20,6 +20,8 @@ IMAGE="vdtyson/demo-dogs:latest"
 APP_CNAME="demo-dogs"
 LOAD_CNAME="demo-dogs-load-gen"
 APP_PORT_HOST="${APP_PORT_HOST:-8000}"
+# Hidden env variable. Used for testing
+POSTMAN_ENV="${POSTMAN_ENV:-PRODUCTION}"
 
 # Helpers
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -94,6 +96,7 @@ info "Press Ctrl+C to stop; cleanup runs automatically."
 echo
 
 sudo POSTMAN_API_KEY="$POSTMAN_API_KEY" \
+     POSTMAN_ENV="$POSTMAN_ENV" \
   postman-insights-agent apidump \
   --project "$SERVICE_ID" \
   --filter "port ${APP_PORT_HOST}" \
