@@ -30,6 +30,7 @@ die()  { err "$1"; exit 1; }
 # Cleanup on exit
 cleanup() {
   info "Cleaning up containers (service + load generator)…"
+  docker stop "$LOAD_CNAME" "$APP_CNAME" >/dev/null 2>&1 || true
   docker rm -f "$LOAD_CNAME" "$APP_CNAME" >/dev/null 2>&1 || true
   success "Demo stopped cleanly. Thanks for trying Insights! 🎉"
 }
@@ -83,7 +84,7 @@ done
 echo
 # --- Load generator (quiet: suppress container id) ---
 TARGET_URL="http://host.docker.internal:${APP_PORT_HOST}"
-docker run -d --rm --name "$LOAD_CNAME" \
+docker run -d --restart=unless-stopped --name "$LOAD_CNAME" \
   --add-host=host.docker.internal:host-gateway \
   "$IMAGE" python load_gen.py "$TARGET_URL" >/dev/null
 ok "Load generator started"
