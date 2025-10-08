@@ -62,7 +62,9 @@ fi
 
 # Required env vars
 [[ -n "${SERVICE_ID:-}" ]] || die "Missing SERVICE_ID environment variable."
-[[ -n "${POSTMAN_API_KEY:-}" ]] || die "Missing POSTMAN_API_KEY environment variable."
+if [[ "$LOCAL_MODE" != "1" ]]; then
+  [[ -n "${POSTMAN_API_KEY:-}" ]] || die "Missing POSTMAN_API_KEY environment variable."
+fi
 
 echo
 
@@ -101,7 +103,8 @@ echo
 
 if [[ "$LOCAL_MODE" == "1" ]]; then
   info "Running in LOCAL_MODE against $LOCAL_DOMAIN"
-  sudo POSTMAN_API_KEY='any-string' \
+  LOCAL_API_KEY="${POSTMAN_API_KEY:-test-key}"
+  sudo POSTMAN_API_KEY="$LOCAL_API_KEY" \
     postman-insights-agent apidump \
     --project "$SERVICE_ID" \
     --debug \
