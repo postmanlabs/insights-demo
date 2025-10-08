@@ -22,6 +22,9 @@ LOAD_CNAME="demo-dogs-load-gen"
 APP_PORT_HOST="${APP_PORT_HOST:-8000}"
 # Hidden env variable. Used for testing
 POSTMAN_ENV="${POSTMAN_ENV:-PRODUCTION}"
+# Local testing mode (set LOCAL_MODE=1 to enable)
+LOCAL_MODE="${LOCAL_MODE:-0}"
+LOCAL_DOMAIN="${LOCAL_DOMAIN:-localhost:50443}"
 
 # Helpers
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -96,10 +99,22 @@ bold "🚀 Starting the Postman Insights Agent (sudo may prompt)…"
 info "Press Ctrl+C to stop; cleanup runs automatically."
 echo
 
-sudo POSTMAN_API_KEY="$POSTMAN_API_KEY" \
-     POSTMAN_ENV="$POSTMAN_ENV" \
-  postman-insights-agent apidump \
-  --project "$SERVICE_ID" \
-  --filter "port ${APP_PORT_HOST}" \
-  --repro-mode
+if [[ "$LOCAL_MODE" == "1" ]]; then
+  info "Running in LOCAL_MODE against $LOCAL_DOMAIN"
+  sudo POSTMAN_API_KEY='any-string' \
+    postman-insights-agent apidump \
+    --project "$SERVICE_ID" \
+    --debug \
+    --domain "$LOCAL_DOMAIN" \
+    --test_only_disable_https \
+    --filter "port ${APP_PORT_HOST}" \
+    --repro-mode
+else
+  sudo POSTMAN_API_KEY="$POSTMAN_API_KEY" \
+       POSTMAN_ENV="$POSTMAN_ENV" \
+    postman-insights-agent apidump \
+    --project "$SERVICE_ID" \
+    --filter "port ${APP_PORT_HOST}" \
+    --repro-mode
+fi
 
